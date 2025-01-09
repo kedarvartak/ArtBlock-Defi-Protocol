@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { BrowserProvider } from 'ethers';
 import axiosInstance from '../utils/axios';
+import useWalletConnection from '../hooks/useWalletConnection';
 
 const LOCAL_STORAGE_KEYS = {
   TOKEN: 'artblock_token',
@@ -13,15 +14,13 @@ const LOCAL_STORAGE_KEYS = {
 const setUserSession = (token, user) => {
   localStorage.setItem(LOCAL_STORAGE_KEYS.TOKEN, token);
   localStorage.setItem(LOCAL_STORAGE_KEYS.USER, JSON.stringify(user));
+  localStorage.setItem(LOCAL_STORAGE_KEYS.WALLET, user.walletAddress);
 };
 
 const clearUserSession = () => {
-  // Keep wallet address when clearing session
-  const walletAddress = localStorage.getItem(LOCAL_STORAGE_KEYS.WALLET);
-  localStorage.clear();
-  if (walletAddress) {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.WALLET, walletAddress);
-  }
+  Object.values(LOCAL_STORAGE_KEYS).forEach(key => {
+    localStorage.removeItem(key);
+  });
 };
 
 const Auth = () => {
@@ -36,20 +35,22 @@ const Auth = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Move useEffect outside conditional render
-  useEffect(() => {
-    const storedWallet = localStorage.getItem(LOCAL_STORAGE_KEYS.WALLET);
-    if (storedWallet) {
-      setFormData(prev => ({ ...prev, walletAddress: storedWallet }));
-    }
+  // Add wallet connection listener
+  useWalletConnection();
 
+  useEffect(() => {
     // Check if user is already logged in
     const token = localStorage.getItem(LOCAL_STORAGE_KEYS.TOKEN);
     const user = localStorage.getItem(LOCAL_STORAGE_KEYS.USER);
+    const wallet = localStorage.getItem(LOCAL_STORAGE_KEYS.WALLET);
     
-    if (token && user) {
+    if (token && user && wallet) {
       navigate('/dashboard');
+      return;
     }
+
+    // Clear any existing session data
+    localStorage.clear();
   }, [navigate]);
 
   const connectWallet = async () => {
@@ -64,11 +65,11 @@ const Auth = () => {
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
       
-      localStorage.setItem(LOCAL_STORAGE_KEYS.WALLET, address);
       setFormData(prev => ({ ...prev, walletAddress: address }));
       
     } catch (err) {
       setError(err.message);
+      clearUserSession();
     } finally {
       setLoading(false);
     }

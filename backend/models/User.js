@@ -21,6 +21,33 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'artist'
   },
+  // Add contract details
+  contract: {
+    address: {
+      type: String,
+      unique: true,
+      sparse: true
+    },
+    deploymentDate: {
+      type: Date
+    },
+    network: {
+      type: String,
+      default: 'sepolia'
+    },
+    totalMinted: {
+      type: Number,
+      default: 0
+    },
+    transactionHash: String,
+    blockExplorerUrl: String,
+    transactionId: String,
+    deploymentStatus: {
+      type: String,
+      enum: ['pending', 'deployed', 'failed'],
+      default: 'pending'
+    }
+  },
   registrationDate: {
     type: Date,
     default: Date.now
@@ -88,4 +115,4 @@ const userSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-export default mongoose.model('User', userSchema); 
+export default mongoose.model('User', userSchema);

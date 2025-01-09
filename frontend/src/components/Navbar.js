@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { clearUserSession } from '../utils/auth';
 
 const NavButton = ({ children, primary, color = 'white', emoji, onClick, disabled }) => (
   <motion.button
@@ -40,95 +41,71 @@ const NavButton = ({ children, primary, color = 'white', emoji, onClick, disable
 );
 
 const WalletButton = () => {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [address, setAddress] = useState(null);
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('artblock_user'));
+  const token = localStorage.getItem('artblock_token');
 
-  useEffect(() => {
-    // Check if already connected
-    const checkConnection = async () => {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          setAddress(accounts[0]);
-        }
-      }
-    };
-    
-    checkConnection();
-
-    // Listen for account changes
-    if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts) => {
-        if (accounts.length > 0) {
-          setAddress(accounts[0]);
-        } else {
-          setAddress(null);
-        }
-      });
-    }
-  }, []);
-
-  const handleConnect = async () => {
-    setIsConnecting(true);
-    try {
-      if (!window.ethereum) {
-        alert('Please install MetaMask to continue!');
-        window.open('https://metamask.io/download.html', '_blank');
-        return;
-      }
-
-      const accounts = await window.ethereum.request({ 
-        method: 'eth_requestAccounts' 
-      });
-
-      if (accounts.length > 0) {
-        setAddress(accounts[0]);
-        navigate('/role-selection');
-      }
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      alert('Failed to connect wallet. Please try again.');
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  if (address) {
-    return (
-      <NavButton color="bg-[#E4E0FF]" emoji="👛">
-        {`${address.slice(0, 6)}...${address.slice(-4)}`}
-      </NavButton>
-    );
+  // If no user or token, redirect to auth
+  if (!user || !token) {
+    navigate('/auth');
+    return null;
   }
 
+  const handleDisconnect = () => {
+    clearUserSession();
+    navigate('/auth');
+  };
+
+  // Only show connected wallet state if user is authenticated
   return (
-    <NavButton 
-      primary 
-      emoji="💫" 
-      onClick={handleConnect}
-      disabled={isConnecting}
-    >
-      {isConnecting ? (
-        <>
-          <motion.span
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          >
-            ⚡
-          </motion.span>
-          Connecting...
-        </>
-      ) : (
-        'Connect Wallet'
-      )}
-    </NavButton>
+    <div className="flex gap-2">
+      <NavButton color="bg-[#E4E0FF]" emoji="👛" onClick={handleDisconnect}>
+        {`${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`}
+      </NavButton>
+    </div>
   );
 };
 
 const Navbar = () => {
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const user = JSON.parse(localStorage.getItem('artblock_user'));
+  const token = localStorage.getItem('artblock_token');
 
+  // If no authenticated user, only show logo
+  if (!user || !token) {
+    return (
+      <motion.nav 
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className="sticky top-0 z-50 bg-transparent border-b-3 border-black"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-24">
+            {/* Logo */}
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center space-x-3 cursor-pointer group"
+              onClick={() => navigate('/auth')}
+            >
+              <motion.span className="text-2xl font-black bg-[#FFE951] border-3 border-black 
+                shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] px-4 py-2 rounded-xl 
+                transform -rotate-2 transition-all group-hover:shadow-none">
+                Art
+              </motion.span>
+              <motion.span className="text-2xl font-black bg-[#E4E0FF] border-3 border-black 
+                shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] px-4 py-2 rounded-xl 
+                transform rotate-2 transition-all group-hover:shadow-none">
+                Block
+              </motion.span>
+            </motion.div>
+          </div>
+        </div>
+      </motion.nav>
+    );
+  }
+
+  // Rest of the Navbar code for authenticated users
   return (
     <motion.nav 
       initial={{ y: -100 }}

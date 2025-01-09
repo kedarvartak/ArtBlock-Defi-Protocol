@@ -15,6 +15,11 @@ router.get('/dashboard/:userId', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Verify the requesting user matches the user ID
+    if (req.user.id !== req.params.userId) {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
     // Get user's artworks
     const artworks = await Artwork.find({ artist: req.params.userId })
       .sort({ createdAt: -1 })
@@ -46,7 +51,7 @@ router.get('/dashboard/:userId', authMiddleware, async (req, res) => {
         totalViews: user.analytics?.totalViews || 0,
         totalLikes: user.analytics?.totalLikes || 0
       },
-      distributionSettings, // Include the distribution settings
+      distributionSettings,
       artworks: artworks.map(artwork => ({
         _id: artwork._id,
         title: artwork.title,

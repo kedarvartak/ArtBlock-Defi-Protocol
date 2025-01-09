@@ -3,10 +3,14 @@ import { motion } from 'framer-motion';
 import ConnectWalletButton from './ConnectWalletButton';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, clearUserSession } from '../utils/auth';
+import useWalletConnection from '../hooks/useWalletConnection';
 
 const HeroSection = () => {
   const navigate = useNavigate();
   const isLoggedIn = isAuthenticated();
+
+  // Add wallet connection listener
+  useWalletConnection();
 
   const handleCreateClick = () => {
     if (!isLoggedIn) {
@@ -39,7 +43,7 @@ const HeroSection = () => {
             rounded-full blur-2xl"
         />
       </div>
-
+          
       <div className="max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Column - Content */}

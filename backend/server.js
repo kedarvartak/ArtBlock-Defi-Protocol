@@ -25,6 +25,11 @@ app.get('/test', (req, res) => {
   res.json({ message: 'Backend is working!' });
 });
 
+console.log('Environment Variables Loaded:', {
+  VERBWIRE_API_KEY_LENGTH: process.env.VERBWIRE_API_KEY?.length,
+  VERBWIRE_API_KEY_PREFIX: process.env.VERBWIRE_API_KEY?.substring(0, 10) + '...'
+});
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

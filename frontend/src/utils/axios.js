@@ -1,17 +1,13 @@
 import axios from 'axios';
-import { getToken } from './auth';
 
-const instance = axios.create({
-  baseURL: 'http://localhost:5000',
-  headers: {
-    'Content-Type': 'application/json'
-  }
+const axiosInstance = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000'
 });
 
-// Request interceptor
-instance.interceptors.request.use(
+// Add a request interceptor
+axiosInstance.interceptors.request.use(
   (config) => {
-    const token = getToken();
+    const token = localStorage.getItem('artblock_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -22,4 +18,17 @@ instance.interceptors.request.use(
   }
 );
 
-export default instance; 
+// Add a response interceptor
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear session and redirect to auth page
+      localStorage.clear();
+      window.location.href = '/auth';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default axiosInstance; 

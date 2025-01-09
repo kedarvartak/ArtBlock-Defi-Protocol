@@ -10,9 +10,17 @@ import {
 } from 'recharts';
 import CreateNFTModal from '../components/CreateNFTModal';
 import axiosInstance from '../utils/axios';
-import { getUser } from '../utils/auth';
+import { useNavigate } from 'react-router-dom';
+import useWalletConnection from '../hooks/useWalletConnection';
+
+const LOCAL_STORAGE_KEYS = {
+  TOKEN: 'artblock_token',
+  USER: 'artblock_user',
+  WALLET: 'artblock_wallet'
+};
 
 const ArtistDashboard = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     profile: {
@@ -44,10 +52,22 @@ const ArtistDashboard = () => {
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
+  // Add wallet connection listener
+  useWalletConnection();
+
   useEffect(() => {
+    const token = localStorage.getItem(LOCAL_STORAGE_KEYS.TOKEN);
+    const user = localStorage.getItem(LOCAL_STORAGE_KEYS.USER);
+
+    // Check if user is authenticated
+    if (!token || !user) {
+      navigate('/auth');
+      return;
+    }
+
     const fetchDashboardData = async () => {
       try {
-        const user = getUser();
+        const user = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.USER));
         console.log('Current User:', user);
 
         const response = await axiosInstance.get(`/api/artist/dashboard/${user.id}`);
@@ -66,24 +86,27 @@ const ArtistDashboard = () => {
           ...prev,
           ...response.data,
           distributionSettings, // Override with processed settings
-          loading: false
+          loading: false,
+          error: null
         }));
 
-        // Verify the final state
-        console.log('Distribution Settings in State:', dashboardData.distributionSettings);
-
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
         setDashboardData(prev => ({
           ...prev,
-          error: error.message,
+          error: err.message || 'Failed to load dashboard data',
           loading: false
         }));
+        
+        // If unauthorized, redirect to auth page
+        if (err.response?.status === 401) {
+          navigate('/auth');
+        }
       }
     };
 
     fetchDashboardData();
-  }, []);
+  }, [navigate]);
 
   // Analytics Card Component - Updated to show actual numbers
   const AnalyticCard = ({ title, value, icon: Icon, color }) => (
