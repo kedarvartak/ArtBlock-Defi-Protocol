@@ -1,8 +1,14 @@
+// explaining the imports - react hooks are imported from react
+// useState: Manage local component state
+// useEffect: Handle side effects (data fetching)
+// useNavigate: Handle routing
+// useWalletConnection: Manage wallet connection
+// framer motion for animations, feather icons for icons, recharts for charts, axios for API calls
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   TrendingUp, Users, Image, DollarSign, Eye, Heart, 
-  PieChart, Settings, Award, Zap, BarChart2, TrendingDown
+  PieChart, Settings, Zap, BarChart2, 
 } from 'react-feather';
 import { 
   AreaChart, Area, BarChart, Bar, PieChart as ReChart, Pie, 
@@ -11,7 +17,9 @@ import {
 import CreateNFTModal from '../components/CreateNFTModal';
 import axiosInstance from '../utils/axios';
 import { useNavigate } from 'react-router-dom';
+// were using wallet connection hook to listen for wallet connection changes. if disconnected user will be redirected to auth page
 import useWalletConnection from '../hooks/useWalletConnection';
+import useNFTContract from '../hooks/useNFTContract';
 
 const LOCAL_STORAGE_KEYS = {
   TOKEN: 'artblock_token',
@@ -21,6 +29,7 @@ const LOCAL_STORAGE_KEYS = {
 
 const ArtistDashboard = () => {
   const navigate = useNavigate();
+  const { getArtistNFTs } = useNFTContract();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dashboardData, setDashboardData] = useState({
     profile: {
@@ -46,7 +55,8 @@ const ArtistDashboard = () => {
     },
     artworks: [],
     loading: true,
-    error: null
+    error: null,
+    chainNFTs: [],
   });
 
   const openModal = () => setIsModalOpen(true);
@@ -56,59 +66,61 @@ const ArtistDashboard = () => {
   useWalletConnection();
 
   useEffect(() => {
-    const token = localStorage.getItem(LOCAL_STORAGE_KEYS.TOKEN);
-    const user = localStorage.getItem(LOCAL_STORAGE_KEYS.USER);
+    let mounted = true;
 
-    // Check if user is authenticated
-    if (!token || !user) {
-      navigate('/auth');
-      return;
-    }
-
-    const fetchDashboardData = async () => {
+    const fetchAllData = async () => {
       try {
         const user = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.USER));
+        if (!user?.walletAddress) {
+          console.log('No user wallet address found');
+          return;
+        }
         console.log('Current User:', user);
 
-        const response = await axiosInstance.get(`/api/artist/dashboard/${user.id}`);
-        console.log('Raw Response:', response.data);
-        
-        // Ensure distribution settings have default values if not present
-        const distributionSettings = {
-          artistShare: response.data.distributionSettings?.artistShare ?? 85,
-          galleryShare: response.data.distributionSettings?.galleryShare ?? 10,
-          platformFee: response.data.distributionSettings?.platformFee ?? 5
-        };
+        // Fetch NFTs from blockchain
+        const nftsFromChain = await getArtistNFTs(user.walletAddress);
+        console.log('NFTs from blockchain:', nftsFromChain);
 
-        console.log('Processed Distribution Settings:', distributionSettings);
+        if (!mounted) return;
+
+        // Fetch dashboard data from backend
+        const response = await axiosInstance.get(`/api/artist/dashboard/${user.id}`);
+        
+        if (!mounted) return;
 
         setDashboardData(prev => ({
           ...prev,
           ...response.data,
-          distributionSettings, // Override with processed settings
+          chainNFTs: nftsFromChain || [],
           loading: false,
           error: null
         }));
 
       } catch (err) {
-        console.error('Error fetching dashboard data:', err);
+        console.error('Error fetching data:', err);
+        if (!mounted) return;
+        
         setDashboardData(prev => ({
           ...prev,
-          error: err.message || 'Failed to load dashboard data',
+          chainNFTs: [],
+          error: err.message || 'Failed to load data',
           loading: false
         }));
         
-        // If unauthorized, redirect to auth page
         if (err.response?.status === 401) {
           navigate('/auth');
         }
       }
     };
 
-    fetchDashboardData();
-  }, [navigate]);
+    fetchAllData();
 
-  // Analytics Card Component - Updated to show actual numbers
+    return () => {
+      mounted = false;
+    };
+  }, []); // Empty dependency array
+
+  
   const AnalyticCard = ({ title, value, icon: Icon, color }) => (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -130,7 +142,7 @@ const ArtistDashboard = () => {
     </motion.div>
   );
 
-  // Distribution Card Component with animation
+  
   const DistributionCard = ({ title, value, color }) => (
     <motion.div 
       whileHover={{ x: 5 }}
@@ -148,7 +160,7 @@ const ArtistDashboard = () => {
     </motion.div>
   );
 
-  // Analytics Section with Charts
+  
   const AnalyticsSection = () => {
     const pieData = [
       { name: 'Listed', value: dashboardData.analytics.totalArtworksListed },
@@ -252,7 +264,7 @@ const ArtistDashboard = () => {
                 { name: 'Jan', price: dashboardData.analytics.averagePrice },
                 { name: 'Feb', price: dashboardData.analytics.averagePrice * 1.2 },
                 { name: 'Mar', price: dashboardData.analytics.averagePrice * 0.8 },
-                // Add more data points as needed
+                
               ]}
             >
               <XAxis dataKey="name" />
@@ -279,9 +291,23 @@ const ArtistDashboard = () => {
     );
   };
 
-  // Enhanced NFT Grid with Filters
+  
   const NFTGrid = () => {
     const [filter, setFilter] = useState('all');
+
+    // Combine backend and blockchain NFTs
+    const allNFTs = dashboardData.chainNFTs.map(nft => ({
+      _id: nft.tokenId.toString(),
+      title: nft.title,
+      description: nft.description,
+      price: nft.price,
+      ipfsHash: nft.image,
+      status: nft.isListed ? 'listed' : 'sold',
+      analytics: {
+        views: 0,
+        likes: 0
+      }
+    }));
 
     return (
       <motion.section
@@ -291,72 +317,68 @@ const ArtistDashboard = () => {
         className="bg-white border-4 border-black rounded-2xl p-8
           shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]"
       >
-        {/* Filter Buttons */}
-        <div className="flex gap-4 mb-8">
-          {['all', 'listed', 'sold', 'draft'].map((status) => (
-            <motion.button
-              key={status}
-              onClick={() => setFilter(status)}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className={`px-4 py-2 border-2 border-black rounded-xl 
-                font-bold capitalize ${
-                filter === status 
-                  ? 'bg-[#FFE951] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]' 
-                  : 'bg-white'
-              }`}
-            >
-              {status}
-            </motion.button>
-          ))}
+        <div className="flex justify-between items-center mb-8">
+          <h3 className="text-2xl font-bold">Your NFTs</h3>
+          <div className="flex gap-4">
+            {['all', 'listed', 'sold'].map((status) => (
+              <motion.button
+                key={status}
+                onClick={() => setFilter(status)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={`px-4 py-2 border-2 border-black rounded-xl 
+                  font-bold capitalize ${
+                  filter === status 
+                    ? 'bg-[#FFE951] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]' 
+                    : 'bg-white'
+                }`}
+              >
+                {status}
+              </motion.button>
+            ))}
+          </div>
         </div>
 
-        {/* NFT Grid */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {dashboardData.artworks
-            .filter(art => filter === 'all' || art.status === filter)
-            .map((artwork) => (
-              <motion.div
-                key={artwork._id}
-                whileHover={{ scale: 1.02, rotate: 1 }}
-                className="border-3 border-black rounded-xl overflow-hidden 
-                  shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none 
-                  transition-all"
-              >
-                <div className="aspect-square bg-gray-100 relative">
-                  <img
-                    src={artwork.ipfsHash}
-                    alt={artwork.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute top-2 right-2 bg-white px-2 py-1 
-                    border-2 border-black rounded-lg text-sm font-bold"
-                  >
-                    {artwork.status}
+        {allNFTs.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No NFTs found. Create your first NFT!</p>
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {allNFTs
+              .filter(nft => filter === 'all' || nft.status === filter)
+              .map((nft) => (
+                <motion.div
+                  key={nft._id}
+                  whileHover={{ scale: 1.02, rotate: 1 }}
+                  className="border-3 border-black rounded-xl overflow-hidden 
+                    shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none 
+                    transition-all"
+                >
+                  <div className="aspect-square bg-gray-100 relative">
+                    <img
+                      src={nft.ipfsHash}
+                      alt={nft.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2 bg-white px-2 py-1 
+                      border-2 border-black rounded-lg text-sm font-bold"
+                    >
+                      {nft.status}
+                    </div>
                   </div>
-                </div>
-                <div className="p-4 bg-white">
-                  <h4 className="font-bold">{artwork.title}</h4>
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-gray-600">Price</span>
-                    <span className="font-bold">{artwork.price || 0} ETH</span>
+                  <div className="p-4 bg-white">
+                    <h4 className="font-bold">{nft.title}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{nft.description}</p>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="text-gray-600">Price</span>
+                      <span className="font-bold">{nft.price} ETH</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-gray-600">Views</span>
-                    <span className="font-bold">
-                      {artwork.analytics?.views || 0}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mt-1">
-                    <span className="text-gray-600">Likes</span>
-                    <span className="font-bold">
-                      {artwork.analytics?.likes || 0}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-        </div>
+                </motion.div>
+              ))}
+          </div>
+        )}
       </motion.section>
     );
   };
@@ -531,10 +553,10 @@ const ArtistDashboard = () => {
             </motion.div>
           </div>
 
-          {/* Add Analytics Section */}
+          
           <AnalyticsSection />
           
-          {/* Add Enhanced NFT Grid */}
+          
           <NFTGrid />
         </div>
       </div>
