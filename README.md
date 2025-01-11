@@ -5,7 +5,89 @@
 ## Overview  
 The **Digital Art Gallery Platform** bridges the gap between digital artists and curators by enabling the creation and management of professional virtual galleries. With an intuitive interface, curators can manage digital spaces while artists can showcase their work and discover opportunities to reach a broader audience.  
 
----
+```mermaid
+flowchart TD
+    %% User Entry Points
+    subgraph UserEntry["User Entry Points"]
+        Artist["Artist"]
+        Gallery["Gallery Curator"]
+        Investor["Art Collector"]
+    end
+
+    %% Authentication
+    subgraph AuthFlow["Authentication Flow"]
+        WebApp["Web Application"]
+        MetaMask["MetaMask Wallet"]
+        Auth["Authentication Layer"]
+        Backend["Express Backend"]
+        DB[(MongoDB)]
+    end
+
+    %% Artist Flow
+    subgraph ArtistFlow["Artist Workflow"]
+        IPFS["IPFS Storage"]
+        Contract["Smart Contract"]
+        Blockchain["Blockchain"]
+    end
+
+    %% Gallery Flow
+    subgraph GalleryFlow["Gallery Workflow"]
+        Collections["Gallery Collections"]
+    end
+
+    %% Marketplace
+    subgraph MarketFlow["Marketplace Interactions"]
+        Market["NFT Marketplace"]
+    end
+
+    %% Purchase Flow
+    subgraph PurchaseFlow["NFT Purchase Flow"]
+        Payments["Payment Distribution"]
+        ArtistWallet["Artist Wallet (85%)"]
+        GalleryWallet["Gallery Wallet (10%)"]
+        Platform["Platform Wallet (5%)"]
+    end
+
+    %% Analytics & Dashboard
+    subgraph Analytics["Analytics & Dashboard"]
+        AnalyticsEngine["Analytics Engine"]
+        ArtistDash["Artist Dashboard"]
+        GalleryDash["Gallery Dashboard"]
+        MarketStats["Market Statistics"]
+    end
+
+    %% Connections
+    Artist & Gallery & Investor -->|Register/Login| WebApp
+    WebApp -->|Web3 Auth| MetaMask
+    MetaMask -->|Verify| Auth
+    Auth -->|JWT| Backend
+    Backend -->|Store User Data| DB
+
+    Artist -->|Upload Art| IPFS
+    IPFS -->|Get Hash| Contract
+    Contract -->|Mint NFT| Blockchain
+
+    Gallery -->|Curate| Collections
+    Collections -->|Partner with| Artist
+    Gallery -->|Set Commission| Contract
+
+    Blockchain -->|List NFTs| Market
+    Market -->|View| Investor
+    Market -->|Curate| Gallery
+
+    Investor -->|Buy NFT| Contract
+    Contract -->|Split Payment| Payments
+    Payments -->|85%| ArtistWallet
+    Payments -->|10%| GalleryWallet
+    Payments -->|5%| Platform
+
+    Blockchain -->|Events| AnalyticsEngine
+    DB -->|User Data| AnalyticsEngine
+    AnalyticsEngine -->|Stats| ArtistDash & GalleryDash & MarketStats
+    ArtistDash -->|View| Artist
+    GalleryDash -->|View| Gallery
+    MarketStats -->|View| Investor
+```
 
 ## Core Features  
 
