@@ -1,4 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import axiosInstance from '../utils/axios';
+import { LOCAL_STORAGE_KEYS, setUserSession } from '../utils/auth';
 
 const AuthContext = createContext();
 
@@ -57,10 +59,30 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const saveUserRole = (role, address) => {
-    saveRoleMapping(address, role);
-    setUserRole(role);
-    setWalletAddress(address);
+  const saveUserRole = async (role, walletAddress) => {
+    try {
+      // First update the role in the database
+      const response = await axiosInstance.post('/api/auth/role', {
+        role,
+        walletAddress
+      });
+
+      if (response.data.success) {
+        // Update local storage
+        const user = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.USER));
+        const updatedUser = { ...user, role };
+        localStorage.setItem(LOCAL_STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+        
+        // Update state
+        setUserRole(role);
+        setWalletAddress(walletAddress);
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('Error saving user role:', error);
+      throw error;
+    }
   };
 
   const logout = () => {

@@ -1,12 +1,15 @@
 import express from 'express';
+import { authenticateArtist, authenticateToken } from '../middleware/auth.js';
 import User from '../models/User.js';
 import Artwork from '../models/Artwork.js';
-import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// Use authenticateToken for general authentication
+// Use authenticateArtist for artist-specific routes
+
 // Get dashboard data
-router.get('/dashboard/:userId', authMiddleware, async (req, res) => {
+router.get('/dashboard/:userId', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId);
     console.log('User data from DB:', user); // Debug log

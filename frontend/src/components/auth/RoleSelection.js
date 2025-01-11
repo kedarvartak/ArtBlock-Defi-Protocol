@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import axiosInstance from '../../utils/axios';
 
 const RoleCard = ({ title, description, icon, color, benefits, onClick, isSelected, image }) => (
   <motion.div
@@ -75,7 +76,9 @@ const RoleCard = ({ title, description, icon, color, benefits, onClick, isSelect
 const RoleSelection = () => {
   const [selectedRole, setSelectedRole] = useState(null);
   const navigate = useNavigate();
-  const { userRole, saveUserRole } = useAuth();
+  const { userRole, saveUserRole, setUserSession } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     // If role exists, redirect kar dashboard la
@@ -131,15 +134,75 @@ const RoleSelection = () => {
 
   const handleRoleSelect = (role) => {
     const walletAddress = window.ethereum.selectedAddress;
-    saveUserRole(role, walletAddress);
-    navigate(`/dashboard/${role.toLowerCase()}`);
+    const roleMapping = {
+      "Artist": "artist",
+      "Curator": "curator",
+      "Investor": "investor"
+    };
+    
+    const normalizedRole = roleMapping[role];
+    if (!normalizedRole) {
+      console.error('Invalid role selected');
+      return;
+    }
+    
+    saveUserRole(normalizedRole, walletAddress);
+    navigate(`/dashboard/${normalizedRole}`);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (selectedRole) {
-      handleRoleSelect(selectedRole);
+      try {
+        setLoading(true);
+        const roleMapping = {
+          "Artist": "artist",
+          "Curator": "curator",
+          "Investor": "investor"
+        };
+        
+        const normalizedRole = roleMapping[selectedRole];
+        if (!normalizedRole) {
+          console.error('Invalid role selected');
+          return;
+        }
+
+        // Get stored signup data
+        const signupData = JSON.parse(localStorage.getItem('signupData'));
+        if (!signupData) {
+          navigate('/auth');
+          return;
+        }
+
+        // Complete registration with role
+        const response = await axiosInstance.post('/api/auth/register', {
+          ...signupData,
+          role: normalizedRole
+        });
+
+        // Clear temporary storage
+        localStorage.removeItem('signupData');
+
+        // Set user session
+        setUserSession(response.data.token, response.data.user);
+        
+        // Navigate to appropriate dashboard
+        navigate(`/dashboard/${normalizedRole}`);
+        
+      } catch (error) {
+        setError(error.response?.data?.message || error.message);
+      } finally {
+        setLoading(false);
+      }
     }
   };
+
+  // Redirect to auth if no signup data exists
+  useEffect(() => {
+    const signupData = localStorage.getItem('signupData');
+    if (!signupData) {
+      navigate('/auth');
+    }
+  }, [navigate]);
 
   // If user already has a role, mag role option deu nakos tyala
   if (userRole) return null;

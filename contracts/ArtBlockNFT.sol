@@ -4,11 +4,13 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./GalleryFactory.sol";
 
 contract ArtBlockNFT is ERC721, ERC721URIStorage {
 
     uint256 private _nextTokenId;
     address private _owner;
+    GalleryFactory public galleryFactory;
 
     
     struct PaymentSplit {
@@ -52,8 +54,16 @@ contract ArtBlockNFT is ERC721, ERC721URIStorage {
         uint256 price
     );
 
-    constructor() ERC721("ArtBlock", "ARTB") {
-        _owner = msg.sender;
+    constructor(address initialOwner) 
+        ERC721("ArtBlock", "ARTB") 
+    {
+        _owner = initialOwner;
+    }
+
+    function setGalleryFactory(address _galleryFactoryAddress) external {
+        require(msg.sender == _owner, "Not the owner");
+        require(address(galleryFactory) == address(0), "GalleryFactory already set");
+        galleryFactory = GalleryFactory(_galleryFactoryAddress);
     }
 
     modifier onlyOwner() {
@@ -75,6 +85,7 @@ contract ArtBlockNFT is ERC721, ERC721URIStorage {
         string memory uri  
     ) public returns (uint256) {
         require(msg.sender == artist, "Only artist can mint");
+        require(galleryFactory.validateGallery(gallery), "Invalid gallery");
         
         uint256 tokenId = _nextTokenId++;
         _safeMint(artist, tokenId);
@@ -112,18 +123,18 @@ contract ArtBlockNFT is ERC721, ERC721URIStorage {
 
         address seller = ownerOf(tokenId);
         PaymentSplit storage split = paymentSplits[tokenId];
-
         
+        require(galleryFactory.validateGallery(split.gallery), "Invalid gallery");
+
         uint256 artistPayment = (msg.value * split.artistShare) / 100;
         uint256 galleryPayment = (msg.value * split.galleryShare) / 100;
         uint256 platformPayment = (msg.value * split.platformShare) / 100;
 
-        
         payable(split.artist).transfer(artistPayment);
-        payable(split.gallery).transfer(galleryPayment);
+        (bool gallerySuccess,) = split.gallery.call{value: galleryPayment}("");
+        require(gallerySuccess, "Gallery payment failed");
         payable(split.platform).transfer(platformPayment);
 
-        
         _transfer(seller, msg.sender, tokenId);
         artwork.isListed = false;
 

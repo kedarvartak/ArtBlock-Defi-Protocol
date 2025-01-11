@@ -7,6 +7,8 @@ import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import ArtistDashboard from './pages/ArtistDashboard';
 import Auth from './pages/Auth';
+import CuratorDashboard from './pages/CuratorDashboard';
+import GalleryDetailView from './pages/gallery/GalleryDetailView';
 
 
 // basically what ive done till now is that when user arrives he signs up with wallet address and then he is redirected to role selection page
@@ -21,12 +23,18 @@ function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/role-selection" element={<RoleSelection />} />
-          <Route path="/dashboard" element={
+          <Route path="/dashboard/artist" element={
             <ProtectedRoute>
               <ArtistDashboard />
             </ProtectedRoute>
           } />
+          <Route path="/dashboard/curator" element={
+            <ProtectedRoute>
+              <CuratorDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/gallery/:galleryId" element={<GalleryDetailView />} />
         </Routes>
         <Footer/>
       </Router>

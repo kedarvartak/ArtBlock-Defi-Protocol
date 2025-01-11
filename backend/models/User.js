@@ -19,7 +19,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    default: 'artist'
+    required: true,
+    enum: ['artist', 'curator', 'investor']
   },
   // Add contract details
   contract: {
@@ -73,6 +74,15 @@ const userSchema = new mongoose.Schema({
     salesCount: {
       type: Number,
       default: 0
+    },
+    // Curator specific fields
+    galleriesCount: {
+      type: Number,
+      default: 0
+    },
+    curatedArtworks: {
+      type: Number,
+      default: 0
     }
   },
   // Analytics Data
@@ -96,6 +106,29 @@ const userSchema = new mongoose.Schema({
     totalLikes: {
       type: Number,
       default: 0
+    },
+    // Curator specific fields
+    totalGalleries: {
+      type: Number,
+      default: 0
+    },
+    totalArtistsCurated: {
+      type: Number,
+      default: 0
+    },
+    totalVisitors: {
+      type: Number,
+      default: 0
+    },
+    totalRevenue: {
+      type: Number,
+      default: 0
+    },
+    mostPopularGallery: String,
+    topArtist: String,
+    avgVisitDuration: {
+      type: Number,
+      default: 0
     }
   },
   // Distribution Settings
@@ -112,7 +145,11 @@ const userSchema = new mongoose.Schema({
       type: Number,
       default: 5 // Default 5%
     }
-  }
+  },
+  galleries: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Gallery'
+  }]
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

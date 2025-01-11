@@ -30,7 +30,8 @@ const Auth = () => {
     username: '',
     password: '',
     confirmPassword: '',
-    walletAddress: ''
+    walletAddress: '',
+    role: null
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,24 @@ const Auth = () => {
     // Clear any existing session data
     localStorage.clear();
   }, [navigate]);
+
+  useEffect(() => {
+    // Check if user came from role selection
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromRole = searchParams.get('fromRole');
+    const selectedRole = localStorage.getItem('selectedRole');
+    
+    if (fromRole && selectedRole) {
+      setFormData(prev => ({
+        ...prev,
+        role: selectedRole
+      }));
+      // Clear the temporary storage
+      localStorage.removeItem('selectedRole');
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/auth');
+    }
+  }, []);
 
   const connectWallet = async () => {
     try {
@@ -85,19 +104,40 @@ const Auth = () => {
         throw new Error('Please connect your wallet first');
       }
 
-      if (!isLogin && formData.password !== formData.confirmPassword) {
-        throw new Error('Passwords do not match');
+      // For signup, first collect user details then redirect to role selection
+      if (!isLogin) {
+        if (formData.password !== formData.confirmPassword) {
+          throw new Error('Passwords do not match');
+        }
+        
+        // Store signup data temporarily
+        localStorage.setItem('signupData', JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          walletAddress: formData.walletAddress
+        }));
+        
+        // Redirect to role selection
+        navigate('/role-selection');
+        return;
       }
 
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const response = await axiosInstance.post(endpoint, {
-        username: formData.username,
+      // Handle login
+      const response = await axiosInstance.post('/api/auth/login', {
         password: formData.password,
         walletAddress: formData.walletAddress
       });
 
       setUserSession(response.data.token, response.data.user);
-      navigate('/dashboard');
+      
+      // Redirect based on user role
+      if (response.data.user.role === 'curator') {
+        navigate('/dashboard/curator');
+      } else if (response.data.user.role === 'artist') {
+        navigate('/dashboard/artist');
+      } else {
+        navigate('/dashboard'); // fallback
+      }
 
     } catch (err) {
       console.error('Auth error:', err);
